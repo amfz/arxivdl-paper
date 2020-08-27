@@ -13,30 +13,28 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Introduction
 
-In `arxivdl` we create a package to facilitate responsibly downloading subsets of papers from arXiv.
+In `arxivdl` we create a package to facilitate responsibly downloading subsets of papers from arXiv. Our package makes use of and complements the `aRxiv` package's functions for getting paper metadata from the arXiv API.
 
-This is useful because there 
-
-Our package makes use of and complements the `aRxiv` package's functions for getting paper metadata from the arXiv API.
+This is useful for researchers interested in getting the full text of multiple PDFs, such as for text mining purposes. Current options for getting arXiv data either do not retrieve the full PDFs, do not allow querying, or involve writing more code. While geared towards downloading papers from arXiv, the package's primary can be used to download other PDF collections as well.
 
 The remainder of this paper is structured as follows: first, we introduce the package's key functions and its supporting functions. Then we provide a longer example of `arxivdl`'s functionality. Finally, we outline limitations to the current package and future directions for its development.
 
 
-# Key functions
+# Key function
 
-The main function in `arxivdl`is `download_pdf()`.
+The main function in `arxivdl`is `download_pdf()`, which downloads and saves PDFs to either a local folder or to an Amazon S3 bucket.
 
-`download_pdf()` takes a data frame, such as one returned by `get_records()`, that contains the URLS of PDFs to download and file names to save PDFs under. It also optionally takes the name of the data frame column containing PDF URLs, the name of the column containing file names to use, and the directory or Amazon Web Services S3 bucket to download papers to. If the link column is not specified, the function looks for the "link_pdf" column. If the file name column is not specified, the function looks for the "id" column. If a save location is not specified, PDFs will be downloaded to the user's current working directory.
+**`download_pdf()`** takes a data frame, such as one returned by `get_records()`, that contains the URLS of PDFs to download and file names to save PDFs under. It also optionally takes the name of the data frame column containing PDF URLs, the name of the column containing file names to use, and the directory or Amazon Web Services S3 bucket to download papers to. If the link column is not specified, the function looks for the "link_pdf" column. If the file name column is not specified, the function looks for the "id" column. If a save location is not specified, PDFs will be downloaded to the user's current working directory.
 
 # Supporting functions
 
 Supporting functions in `arxivdl` include `get_record_count()`, which can be used to understand how many papers were submitted to a specified arXiv subject area over a given timespan, and `get_records()`, which retrieves metadata for papers submitted to a specified arXiv subject area in a given timespan. The resulting data frame can then be passed to `download_pdf()` to download the full papers. A utility function, `clean_titles()`, that creates file names from paper titles is also included.
 
-`get_record_count()` takes as arguments the arXiv categories to query and the time period over which to search, and returns the number of papers that fit those criteria. It helps scope out the number of papers to be downloaded.
+**`get_record_count()`** takes as arguments the arXiv categories to query and the time period over which to search, and returns the number of papers that fit those criteria. It helps scope out the number of papers to be downloaded.
 
-`get_records()` takes as arguments the arXiv categories to query, the time span to search, and the maximum number of records to retrieve. If the function is called in interactive mode (e.g., from the R console), specifying the limit is optional -- the function will call `get_record_count()`, estimate the record retrieval time, and ask the user if they wish to proceed. `get_records()` returns a data frame containing metadata on all papers meeting the criteria, ordered from earliest submission date. **An example use case for this is...**
+**`get_records()`** takes as arguments the arXiv categories to query, the time span to search, and the maximum number of records to retrieve. If the function is called in interactive mode (e.g., from the R console), specifying the limit is optional -- the function will call `get_record_count()`, estimate the record retrieval time, and ask the user if they wish to proceed. `get_records()` returns a data frame containing metadata on all papers meeting the criteria, ordered from earliest submission date. An example use case for this is 
 
-`clean_titles()` takes a data frame and the name of the column to clean for use as file names.
+**`clean_titles()`** takes a data frame and the name of the column to clean for use as file names. It converts text to lowercase, removes punctuation, and replaces spaces with underscores. These names provide a better sense of file contents than the default arXiv paper identifiers.
 
 # Vignette
 
@@ -45,10 +43,10 @@ Supporting functions in `arxivdl` include `get_record_count()`, which can be use
 library(arxivdl)
 
 # check how many computer science graphics papers from January 2020 will be returned
-paper_count <- get_record_count("cs.GR", "20200101 TO 20200131")
+paper_count <- get_record_count("cs.GR", "20200101 TO 20200201")
 
 # get metadata on all graphics papers in January 2020
-metadata <- get_records("cs.GR", "20200101 TO 20200131", paper_count)
+metadata <- get_records("cs.GR", "20200101 TO 20200201", paper_count)
 
 # download papers to data folder within working directory
 download_pdf(metadata, directory = "./data")
@@ -66,8 +64,8 @@ Sys.setenv(
   "AWS_DEFAULT_REGION" = "us-east-2" # replace region as appropriate
 )
 
-# get metadata for graphics papers published in January 2020
-papers <- get_records("cs.GR","202001 TO 20200201", lim = 20)
+# get metadata for the first 20 graphics papers published in 2019
+papers <- get_records("cs.GR","2019 TO 2020", lim = 20)
 
 # create file names based on paper titles
 papers$file_name <- clean_titles(papers)
@@ -81,9 +79,9 @@ download_pdf(papers, fname = "file_name", bucket = "my-s3-bucket")
 
 # Next steps and cautions
 
-While the `arxivdl` package introduces a delay when getting data from arXiv, it does not currently prohibit the user from making large requests of the site. If bulk data on all papers is required, [arXiv's bulk PDF access](https://arxiv.org/help/bulk_data_s3) option may be a better solution.
+While the `arxivdl` package introduces delays between requests made to arXiv, it does not currently prohibit the user from making large requests of the site. Users are expected to exercise caution when calling `download_pdf()`. One next step is to place limits on how large a data frame can be passed to `download_pdf()` and provide suggestions for users to break down large requests into smaller parts. However, if bulk data on all papers is required, [arXiv's bulk PDF access](https://arxiv.org/help/bulk_data_s3) option may be a better solution.
 
-This package is geared towards facilitating paper downloads by time period and subject area. As such, it does not currently support other types of queries, such as searching for specific authors.
+This package is geared towards facilitating paper downloads by submission time period and subject area. As such, it does not currently support other types of queries, such as searching for specific authors or searching by the date of last update.
 
 \newpage
 # Appendix: AWS S3 Setup
@@ -125,8 +123,8 @@ Once the S3 bucket exists, the next steps are setting up an Identity and Access 
                 "s3:*"
             ],
             "Resource": [
-                "arn:aws:s3:::mybucket",
-                "arn:aws:s3:::mybucket/*"
+                "arn:aws:s3:::myexamplebucket",
+                "arn:aws:s3:::myexamplebucket/*"
             ]
         }
     ]
